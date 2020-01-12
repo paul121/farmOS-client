@@ -94,19 +94,12 @@ export default {
       const dateFix = d => ((d < 10) ? `0${d}` : d);
       const mm = addLeadZero(date.getMonth() + 1);
       const dd = addLeadZero(date.getDate());
-      console.log('FULLYEAR'+'\n'+date.getFullYear());
       return `${date.getFullYear()}-${mm}-${dd}`;
     },
-    /*
-      The null check corrects the behavior, and causes year entered to conform
-      to fullYear
-      If an invalid year is entered, the new date is simply not saved.
-    */
     dateAndTimeToUnix(dateString, hourOutOf12, minute, am) {
       const year = +dateString.split('-')[0];
       const monthIndex = +dateString.split('-')[1] - 1;
       const day = +dateString.split('-')[2];
-      console.log('YEAR'+'\n'+year);
       let hourOutOf24;
       if (am && +hourOutOf12 === 12) {
         hourOutOf24 = 0;
@@ -127,13 +120,7 @@ export default {
         return (this.timestamp).toString();
       }
     },
-    /*
-    The null check prevents errors
-    Years entered are parsed incorrectly by dateAndTimeToUnix
-    '99' becomes 1999; impossible to enter full dates
-    */
     updateDate(dateString) {
-      console.log('DATESTRING'+'\n'+dateString);
       if(dateString) {
         const timestamp = this.dateAndTimeToUnix(
           dateString,
