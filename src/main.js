@@ -2,10 +2,12 @@ import 'farmOS-map/src/main';
 import app from '@/core/app';
 import weather from '@/field-modules/weather';
 import logs from '@/field-modules/my-logs';
+import nfc from '@/field-modules/nfc';
 
 app('#app', [
   logs,
   weather,
+  nfc,
 ]);
 
 // Check that service workers are registered (for production environment only)
