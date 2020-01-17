@@ -1,28 +1,47 @@
 <template>
-  <div class="container-fluid">
-    <br>
-    <div class="card" v-if="isNative">
-      <div class="card-header">NFC Tools</div>
-      <div class="card-body">
-        <p>NFC Disabled: {{ nfc_disabled }}</p>
+  <div>
+    <router-view
+      :logs='logs'
+      :areas='areas'
+      :assets='assets'
+      :units='units'
+      :categories='categories'
+      :equipment='equipment'
+   />
+    <div class="container-fluid">
+      <br>
+      <div class="card" v-if="isNative">
+        <div class="card-header">NFC Tools</div>
+        <div class="card-body">
+          <p>NFC Disabled: {{ nfc_disabled }}</p>
 
-        <input v-model="assetId" placeholder="Asset ID">
-        <input v-model="assetNotes" placeholder="Notes">
+          <select v-model="selectedAsset">
+            <option
+              v-for="(asset, i) in assets"
+              v-bind:value="asset.id"
+            >
+              {{ asset.name }} - {{ asset.type }}
+            </option>
+          </select>
 
-        <button @click="startWriteTag" v-bind:disabled="nfcWriteStarted">Write data to tag</button>
-        <input v-model="nfcWriteStatus" v-if="nfcWriteStarted">
 
+          <input v-model="selectedAsset" placeholder="Asset ID">
+
+          <button @click="startWriteTag" v-bind:disabled="!selectedAsset || nfcWriteStarted">Write data to tag</button>
+          <input v-model="nfcWriteStatus" v-if="nfcWriteStarted">
+
+        </div>
       </div>
-    </div>
-    <div class="card" v-else>
-      <div class="card-header"></div>
-      <div class="card-body">
-        <h1>In da browser. </h1>
+      <div class="card" v-else>
+        <div class="card-header"></div>
+        <div class="card-body">
+          <h1>In da browser. </h1>
+        </div>
       </div>
-    </div>
-    <button @click="showSettings" v-if="nfc_disabled">Show Settings</button>
-    <br>
+      <button @click="showSettings" v-if="nfc_disabled">Show Settings</button>
+      <br>
 
+    </div>
   </div>
 </template>
 
@@ -32,14 +51,13 @@
 export default {
   name: 'nfc',
   data: () => ({
+    selectedAsset: null,
     nfcWriteStatus: 'Not started',
     nfcWriteStarted: null,
-    assetId: null,
-    assetNotes: '',
     compatible: true,
     nfc_disabled: true,
- }),
-  props: ['logs', 'units', 'categories', 'systemOfMeasurement'],
+  }),
+  props: ['logs', 'areas', 'assets', 'units', 'categories', 'equipment', 'systemOfMeasurement'],
   created() {
     this.$store.dispatch('updateUnits');
     this.$store.dispatch('updateCategories');
@@ -59,11 +77,24 @@ export default {
     // Register NFC Event Listeners
     this.registerTagEvent();
     this.mounted = true;
+    this.syncAll();
   },
   beforeDestroy() {
     this.unregisterTagEvent();
   },
   methods: {
+    /**
+     * SYNCING
+     */
+    syncAll() {
+      this.$store.dispatch('getServerLogs');
+      this.$store.dispatch('updateAssets');
+      this.$store.dispatch('updateAreas');
+      this.$store.dispatch('updateUnits');
+      this.$store.dispatch('updateCategories');
+      this.$store.dispatch('updateEquipment');
+    },
+
     registerTagEvent() {
       // Unregister previously « resume » event listener.
       document.removeEventListener('resume', this.registerTagEvent, false);
@@ -112,8 +143,9 @@ export default {
       // Build the message
       const mimeType = 'application/farmos';
       const recordData = {
-        asset: this.assetId,
-        notes: this.assetNotes,
+        asset: {
+          id: this.selectedAsset,
+        },
       };
       const payload = JSON.stringify(recordData);
       const message = [
@@ -141,12 +173,27 @@ export default {
 
       // Display message
       let msg = 'Got a farmOS mime type: \n';
-      msg = msg.concat('Tag ID: ', nfc.bytesToHexString(tag.id), '\n');
+      const tagID = nfc.bytesToHexString(tag.id);
       ndefMessage.forEach((record) => {
-        msg = msg.concat('type: ', nfc.bytesToString(record.type), '\n');
-        msg = msg.concat('payload: ', nfc.bytesToString(record.payload), '\n');
+        const type =  nfc.bytesToString(record.type);
+        const payload = nfc.bytesToString(record.payload);
+        const payloadObj = JSON.parse(payload);
+        if (type === 'application/farmos') {
+          if ('asset' in payloadObj && 'id' in payloadObj.asset) {
+            const asset = this.assets.find(a => parseInt(a.id, 10) === parseInt(payloadObj.asset.id, 10));
+            msg = 'This tag belongs to farm asset '.concat(payloadObj.asset.id, '\n');
+            msg = msg.concat('Tag ID: ', tagID, '\n');
+            msg = msg.concat('Name: ', asset.name, '\n');
+            msg = msg.concat('Type: ', asset.type, '\n');
+            alert(msg);
+          }
+        } else {
+          msg = msg.concat('Tag: ', tagID, '\n');
+          msg = msg.concat('Type: ', type, '\n');
+          msg = msg.concat('Paylaod: ', payload, '\n');
+          alert(msg);
+        }
       });
-      alert(msg);
     },
     onNdef(nfcEvent) {
       // Handle all Ndef events without MimeType of `application/farmos`
